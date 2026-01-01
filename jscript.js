@@ -2,113 +2,99 @@ const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d");
 const overlay = document.getElementById("overlay");
 
-let gameRunning = false;
+let running = false;
 
-// paddles
-const paddleH = 90, paddleW = 12;
-let playerY = 200;
-let aiY = 200;
-const paddleSpeed = 6;
+// sizes
+const PADDLE_H = 90;
+const PADDLE_W = 12;
+const BALL_R = 8;
+
+// player & AI
+let playerY = canvas.height / 2 - PADDLE_H / 2;
+let aiY = canvas.height / 2 - PADDLE_H / 2;
 
 // ball
 let ballX = canvas.width / 2;
 let ballY = canvas.height / 2;
 let ballVX = 5;
 let ballVY = 4;
-const ballR = 8;
 
-// score
+// scores
 let playerScore = 0;
 let aiScore = 0;
 
 // obstacle
 let obstacle = {
-  x: canvas.width / 2 - 20,
-  y: 120,
-  w: 40,
-  h: 260,
+  x: canvas.width / 2 - 15,
+  y: 150,
+  w: 30,
+  h: 200,
   vy: 2
 };
 
-// keyboard
-const keys = {};
+// keys
+let up = false, down = false;
+
 document.addEventListener("keydown", e => {
-  keys[e.key] = true;
+  if (e.key === "w") up = true;
+  if (e.key === "s") down = true;
+
   if (e.code === "Space") {
-    gameRunning = !gameRunning;
-    overlay.style.display = gameRunning ? "none" : "block";
+    running = !running;
+    overlay.style.display = running ? "none" : "block";
   }
 });
-document.addEventListener("keyup", e => keys[e.key] = false);
 
-// reset
+document.addEventListener("keyup", e => {
+  if (e.key === "w") up = false;
+  if (e.key === "s") down = false;
+});
+
 function resetBall() {
   ballX = canvas.width / 2;
   ballY = canvas.height / 2;
   ballVX *= -1;
 }
 
-// draw helpers
-function rect(x, y, w, h, c) {
-  ctx.fillStyle = c;
-  ctx.fillRect(x, y, w, h);
-}
-
-function ball() {
-  ctx.beginPath();
-  ctx.arc(ballX, ballY, ballR, 0, Math.PI * 2);
-  ctx.fillStyle = "white";
-  ctx.shadowBlur = 15;
-  ctx.shadowColor = "white";
-  ctx.fill();
-  ctx.shadowBlur = 0;
-}
-
-function score() {
-  ctx.fillStyle = "cyan";
-  ctx.font = "28px monospace";
-  ctx.fillText(playerScore, canvas.width / 4, 40);
-  ctx.fillText(aiScore, canvas.width * 3 / 4, 40);
-}
-
-// update
 function update() {
-  if (!gameRunning) return;
+  if (!running) return;
 
-  // PLAYER
-  if (keys["w"] && playerY > 0) playerY -= paddleSpeed;
-  if (keys["s"] && playerY < canvas.height - paddleH) playerY += paddleSpeed;
+  // PLAYER (LEFT)
+  if (up && playerY > 0) playerY -= 6;
+  if (down && playerY < canvas.height - PADDLE_H) playerY += 6;
 
-  // AI (simple follow logic)
-  const aiCenter = aiY + paddleH / 2;
-  if (aiCenter < ballY - 10) aiY += 4;
-  else if (aiCenter > ballY + 10) aiY -= 4;
+  // AI (RIGHT) — intentionally dumb
+  if (Math.random() < 0.5) {
+    const aiCenter = aiY + PADDLE_H / 2;
+    if (aiCenter < ballY - 30) aiY += 3;
+    else if (aiCenter > ballY + 30) aiY -= 3;
+  }
 
-  // ball
+  // ball move
   ballX += ballVX;
   ballY += ballVY;
 
   if (ballY < 0 || ballY > canvas.height) ballVY *= -1;
 
-  // collisions
+  // player collision
   if (
-    ballX < paddleW + 10 &&
+    ballX < 22 &&
     ballY > playerY &&
-    ballY < playerY + paddleH
+    ballY < playerY + PADDLE_H
   ) ballVX *= -1.1;
 
+  // AI collision
   if (
-    ballX > canvas.width - paddleW - 10 &&
+    ballX > canvas.width - 22 &&
     ballY > aiY &&
-    ballY < aiY + paddleH
+    ballY < aiY + PADDLE_H
   ) ballVX *= -1.05;
 
-  // obstacle move
+  // obstacle
   obstacle.y += obstacle.vy;
   if (obstacle.y < 0 || obstacle.y + obstacle.h > canvas.height)
     obstacle.vy *= -1;
 
-  // obstacle collision
   if (
     ballX > obstacle.x &&
     ballX < obstacle.x + obstacle.w &&
@@ -127,23 +113,41 @@ function update() {
   }
 }
 
-// render
-function render() {
-  rect(0, 0, canvas.width, canvas.height, "#050510");
+function draw() {
+  ctx.fillStyle = "#050510";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-  rect(10, playerY, paddleW, paddleH, "cyan");
-  rect(canvas.width - 22, aiY, paddleW, paddleH, "hotpink");
+  // paddles
+  ctx.fillStyle = "cyan";
+  ctx.fillRect(10, playerY, PADDLE_W, PADDLE_H);
 
-  rect(obstacle.x, obstacle.y, obstacle.w, obstacle.h, "#444");
+  ctx.fillStyle = "hotpink";
+  ctx.fillRect(canvas.width - 22, aiY, PADDLE_W, PADDLE_H);
 
-  ball();
-  score();
+  // obstacle
+  ctx.fillStyle = "#555";
+  ctx.fillRect(obstacle.x, obstacle.y, obstacle.w, obstacle.h);
+
+  // ball
+  ctx.beginPath();
+  ctx.arc(ballX, ballY, BALL_R, 0, Math.PI * 2);
+  ctx.fillStyle = "white";
+  ctx.shadowBlur = 15;
+  ctx.shadowColor = "white";
+  ctx.fill();
+  ctx.shadowBlur = 0;
+
+  // score
+  ctx.fillStyle = "cyan";
+  ctx.font = "28px monospace";
+  ctx.fillText(playerScore, canvas.width / 4, 40);
+  ctx.fillText(aiScore, canvas.width * 3 / 4, 40);
 }
 
-// loop
 function loop() {
   update();
-  render();
+  draw();
   requestAnimationFrame(loop);
 }
+
 loop();
